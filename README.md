@@ -41,17 +41,26 @@ The pipeline processes high-resolution footage through two specialized neural ne
 
 ---
 
-## ⚙️ Model Optimization (High-Recall Strategy)
+## ⚙️ Model Optimization & Performance (The "Secret Sauce")
 
-Standard classification models optimize for overall accuracy. In mine-clearance, the cost of a **False Negative** (missing a mine) is catastrophic. Our training logic (`resnetv2_training.py`) implements several safety-critical engineering choices:
+In mine detection, a **False Negative** (missing a mine) is a catastrophic failure. Standard models optimize for overall accuracy, which fails in safety-critical edge cases with heavy class imbalance. We engineered the ResNet50V2 model using a custom training loop (`training/train.py`) designed to force the network to prioritize high recall.
 
-* **Hardware Simulation (Drone Blur):** A custom `random_drone_blur` augmentation simulates the motion blur and resolution drops typical of low-altitude drone feeds.
-* **Algorithmic Bias (Focal Loss):** We utilized **Binary Focal Crossentropy** ($\gamma=2.0$) to force the model to learn from "hard" samples that standard loss functions might ignore.
-* **2.0x Safety Weighting:** We applied dynamic class weights with an explicit **2x multiplier** for the 'mine' class, biasing the gradient updates toward caution.
-* **Two-Phase Fine-Tuning:**
-   * **Phase 1:** Warmup of the dense head to protect pre-trained ImageNet features.
-   * **Phase 2:** Deep fine-tuning of the top 50 layers of the ResNet backbone.
-* **Threshold Calibration:** The deployment threshold is strictly tuned to **$\le$ 0.20** based on validation F1-score mapping, ensuring maximum sensitivity.
+### 1. Hardware-Aware Data Augmentation
+* **Dynamic Drone Blur:** Implemented a custom `random_drone_blur` function within the `tf.data` pipeline. This randomly downscales and upscales batches in real-time, simulating the motion blur and dynamic resolution drops experienced by a live drone camera feed over varied terrain.
+* **Geospatial Augmentation:** Applied heavy random rotations, translations, and contrast shifts to mimic varying flight altitudes and sun angles.
+
+### 2. Combating Class Imbalance
+* **Binary Focal Crossentropy:** Replaced standard categorical loss with Focal Loss ($\gamma=2.0$) to heavily penalize the model for missing "hard negatives" (e.g., rocks or shadows that closely resemble mines) rather than easily classified safe terrain.
+* **Programmatic Safety Weighting:** Calculated memory-safe dynamic class weights across the dataset, applying an explicit **2.0x Safety Multiplier** to the hazard class. This biases the gradient updates to favor caution.
+
+### 3. Architectural Preservation (Two-Phase Training)
+* **Phase 1 (Warmup):** Froze the ResNet backbone to train the newly initialized dense head with a high learning rate ($1e-3$). This prevents "gradient shock" from destroying the pre-trained ImageNet feature extractors.
+* **Phase 2 (Deep Fine-Tuning):** Unfroze the top 50 layers of the backbone with a reduced learning rate ($1e-5$) to allow the model to learn terrain-specific geometric features.
+
+### 4. Precision-Recall Threshold Calibration
+* Instead of relying on a standard 0.5 confidence threshold, the script actively evaluates the validation set post-training. By mapping precision, recall, and F1-scores across discrete intervals, we identified that dropping the deployment threshold to **$\le$ 0.20** yields the maximum safety-critical recall required for mission deployment.
+
+---
 
 <img width="551" height="209" alt="image" src="https://github.com/user-attachments/assets/75bcc047-b972-4747-a92d-cad95d69daaa" />
 
@@ -84,9 +93,11 @@ Place your `detection.pt` and `resnet_mine_model.keras` files into the `/models`
 ```bash
 python pipeline.py
 ```
+
 The script will automatically clear previous runs and sort fresh results into the `/output` subdirectories for auditing.
 
 ---
+
 *"Building autonomous systems that understand the physical world."* 🤖⚡
 
 ---
