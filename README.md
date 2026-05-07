@@ -2,6 +2,9 @@
 
 An end-to-end vision pipeline designed for autonomous hazard identification in aerial drone surveillance. This system bridges the gap between hardware constraints and high-fidelity AI, utilizing a **Two-Stage Verification** approach to maximize mission safety.
 
+<img width="1280" height="720" alt="det_stereo_0002_left1" src="https://github.com/user-attachments/assets/03d6c219-3448-44e0-bd50-c4e32d1d5e3e" />
+
+
 ---
 
 ## 🏗️ Directory Structure
@@ -49,6 +52,16 @@ Standard classification models optimize for overall accuracy. In mine-clearance,
    * **Phase 1:** Warmup of the dense head to protect pre-trained ImageNet features.
    * **Phase 2:** Deep fine-tuning of the top 50 layers of the ResNet backbone.
 * **Threshold Calibration:** The deployment threshold is strictly tuned to **$\le$ 0.20** based on validation F1-score mapping, ensuring maximum sensitivity.
+
+<img width="551" height="209" alt="image" src="https://github.com/user-attachments/assets/75bcc047-b972-4747-a92d-cad95d69daaa" />
+
+---
+
+<img width="705" height="636" alt="Confusion Matrix" src="https://github.com/user-attachments/assets/0368f55f-903c-4e65-bc17-0e8dbc9b8bf3" />
+
+---
+
+<img width="1455" height="451" alt="Graph" src="https://github.com/user-attachments/assets/c7d81e81-4535-41ee-90c7-268bb4e88202" />
 
 ---
 
