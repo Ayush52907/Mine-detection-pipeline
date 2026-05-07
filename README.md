@@ -62,13 +62,20 @@ In mine detection, a **False Negative** (missing a mine) is a catastrophic failu
 
 ---
 
+## 📊 Evaluation & Metrics
+
+### Detection Performance
+The model achieves a **0.9941 Recall** on the 'mine' class, ensuring that nearly all potential hazards are successfully localized and passed to the verification stage.
+
 <img width="551" height="209" alt="image" src="https://github.com/user-attachments/assets/75bcc047-b972-4747-a92d-cad95d69daaa" />
 
----
+### Confusion Matrix & Error Analysis
+The secondary classifier effectively filters out "Safe" anomalies (rocks, shadows) while maintaining a near-zero false-negative rate in the "Mine" category.
 
 <img width="705" height="636" alt="Confusion Matrix" src="https://github.com/user-attachments/assets/0368f55f-903c-4e65-bc17-0e8dbc9b8bf3" />
 
----
+### Training Dynamics (Phase 1 vs Phase 2)
+The graphs below illustrate the shift from **Phase 1 (Warmup)** to **Phase 2 (Deep Fine-Tuning)**. Note the spike in validation recall and precision once the top 50 layers of the ResNet backbone were unfrozen, allowing the model to adapt to specific terrain geometry.
 
 <img width="1455" height="451" alt="Graph" src="https://github.com/user-attachments/assets/c7d81e81-4535-41ee-90c7-268bb4e88202" />
 
