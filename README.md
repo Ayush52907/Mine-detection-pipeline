@@ -1,74 +1,79 @@
 # Multi-Stage Mine Detection Pipeline 🛸
 
-An end-to-end vision pipeline designed for autonomous hazard identification in aerial drone surveillance.
+An end-to-end vision pipeline designed for autonomous hazard identification in aerial drone surveillance. This system bridges the gap between hardware constraints and high-fidelity AI, utilizing a **Two-Stage Verification** approach to maximize mission safety.
 
-This system bridges the gap between hardware constraints and high-fidelity AI, utilizing a two-stage verification approach to maximize mission safety and minimize false triggers in complex terrain.
+---
+
+## 🏗️ Directory Structure
+
+```text
+├── data/
+│   └── sample_images/  # Place target aerial footage here
+├── models/             # Store .pt (YOLO) and .keras (ResNet) weights here
+├── output/             
+│   ├── verified_mines/ # Final confirmed threats
+│   ├── verified_safe/  # Filtered "hard negatives" (rocks/shadows)
+│   ├── yolo_crops/     # Raw localized detections
+│   └── yolo_detections/# Annotated full-frame images
+├── pipeline.py         # Main inference orchestration script
+├── resnetv2_training.py# Model optimization and training script
+└── requirements.txt    # Project dependencies
+```
 
 ---
 
 ## 🧠 System Architecture
 
-The pipeline processes high-resolution aerial footage through two distinct neural networks:
+The pipeline processes high-resolution footage through two specialized neural networks:
 
-### 1. Stage 1: Localization (YOLOv8)
-* Scans the full-frame input feed for potential hazards.
-* Outputs cropped bounding boxes of regions of interest.
-* Optimized for high-speed edge inference to keep up with real-time flight data.
+1. **Stage 1: Localization (YOLOv8)**
+   * Rapidly scans the environment to identify regions of interest.
+   * Optimized for high-speed inference to maintain real-time flight telemetry.
+   * Generates bounding box crops for deep analysis.
 
-### 2. Stage 2: Verification (ResNet50V2)
-* Acts as the secondary safety gate.
-* Performs granular classification on the YOLO crops to verify if the anomaly is a threat.
-* Optimized strictly for **High Recall** to filter out environmental noise (rocks, shadows, dry grass).
-
----
-
-## ⚙️ Model Optimization & Performance (The "Secret Sauce")
-
-In mine detection, a **False Negative** (missing a mine) is a catastrophic failure. Standard models optimize for overall accuracy, which fails in safety-critical edge cases. 
-
-We engineered the ResNet50V2 model (`resnetv2_training.py`) using the following techniques to force the network to prioritize high recall:
-
-* **Dataset Hardening:** Augmented the dataset with specifically chosen "hard negatives" (visual anomalies that look like mines) to reduce false positives without sacrificing recall.
-* **Hardware Simulation (Random Blur):** Implemented a custom `random_drone_blur` function in the `tf.data` pipeline. This randomly downscales and upscales batches to simulate the motion blur and dynamic resolution drops experienced by a live drone camera feed.
-* **Algorithmic Safety Nets:**
-  * **Focal Loss:** Utilized `BinaryFocalCrossentropy` to heavily penalize the model for missing difficult, hard-to-see mines.
-  * **Dynamic Class Weighting:** Calculated memory-safe dynamic class weights, applying an explicit **2.0x Safety Multiplier** to the 'mine' class to bias the network toward caution.
-* **Two-Phase Fine-Tuning:** Executed a warmup phase on the dense head, followed by deep fine-tuning of the ResNet backbone.
-* **Recall-Driven Callbacks:** Standard training monitors loss or accuracy. We explicitly monitored `val_recall` for both our `EarlyStopping` (patience=5) and `ReduceLROnPlateau` (factor=0.2) callbacks to ensure the model's architecture saved the weights with the highest safety rating.
+2. **Stage 2: Verification (ResNet50V2)**
+   * Acts as the secondary "Safety Gate."
+   * Specifically tuned for **High Recall** to ensure zero missed threats.
+   * Uses deep feature extraction to differentiate between actual mines and environmental "noise" like complex shadows or dry vegetation.
 
 ---
 
-## 🚀 How to Run the Pipeline
+## ⚙️ Model Optimization (High-Recall Strategy)
 
-### 1. Environment Setup
-Clone the repository and set up a virtual environment to ensure dependency isolation:
+Standard classification models optimize for overall accuracy. In mine-clearance, the cost of a **False Negative** (missing a mine) is catastrophic. Our training logic (`resnetv2_training.py`) implements several safety-critical engineering choices:
+
+* **Hardware Simulation (Drone Blur):** A custom `random_drone_blur` augmentation simulates the motion blur and resolution drops typical of low-altitude drone feeds.
+* **Algorithmic Bias (Focal Loss):** We utilized **Binary Focal Crossentropy** ($\gamma=2.0$) to force the model to learn from "hard" samples that standard loss functions might ignore.
+* **2.0x Safety Weighting:** We applied dynamic class weights with an explicit **2x multiplier** for the 'mine' class, biasing the gradient updates toward caution.
+* **Two-Phase Fine-Tuning:**
+   * **Phase 1:** Warmup of the dense head to protect pre-trained ImageNet features.
+   * **Phase 2:** Deep fine-tuning of the top 50 layers of the ResNet backbone.
+* **Threshold Calibration:** The deployment threshold is strictly tuned to **$\le$ 0.20** based on validation F1-score mapping, ensuring maximum sensitivity.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Installation
 ```bash
-git clone [https://github.com/Ayush52907/Mine-Detection-Vision-Pipeline.git](https://github.com/Ayush52907/Mine-Detection-Vision-Pipeline.git)
+# Clone the repository
+git clone https://github.com/Ayush52907/Mine-Detection-Vision-Pipeline.git
 cd Mine-Detection-Vision-Pipeline
 
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
-# Install required libraries
+# Install dependencies
 pip install -r requirements.txt
-
 ```
-### 2. Add Model Weights
-*Note: Due to file size constraints, the trained model weights are stored locally.*
- * Place your trained YOLOv8 weights (e.g., detection.pt) directly into the models/ directory.
- * Place your high-recall ResNet classifier weights (e.g., resnet_mine_model.keras) into the models/ directory.
-### 3. Execution
-Ensure your target aerial imagery is placed in the data/sample_images/ directory, then execute the pipeline:
+
+### 2. Prepare Models
+Place your `detection.pt` and `resnet_mine_model.keras` files into the `/models` directory.
+
+### 3. Run Inference
 ```bash
 python pipeline.py
-
 ```
-### 4. Results & Auditing
-The pipeline utilizes a "clean slate" execution, automatically clearing old data and generating fresh results in the output/ directory:
- * output/yolo_detections/: Full aerial images with localized bounding boxes.
- * output/yolo_crops/: Raw extracted anomalies prior to verification.
- * output/verified_mines/: 🚨 **Critical Threats** - Crops verified as mines by the ResNet threshold.
- * output/verified_safe/: ✅ **Safe Terrain** - Hard negatives (rocks, shadows) filtered out by the secondary classifier.
+The script will automatically clear previous runs and sort fresh results into the `/output` subdirectories for auditing.
 
-*Built for the intersection of autonomous agents and physical hardware.* 🤖⚡
+---
+*"Building autonomous systems that understand the physical world."* 🤖⚡
+
+---
