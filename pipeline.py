@@ -25,8 +25,8 @@ FINAL_MINE_FOLDER = os.path.join(BASE_DIR, 'output', 'verified_mines')
 FINAL_SAFE_FOLDER = os.path.join(BASE_DIR, 'output', 'verified_safe')
 
 # Thresholds
-YOLO_CONFIDENCE = 0.2
-CLASSIFIER_THRESHOLD = 0.5
+YOLO_CONFIDENCE = 0.2 #Set confidence threshold for YOLO detection model
+CLASSIFIER_THRESHOLD = 0.5 #Set confidence threshold score for resnetv2 classification model
 # ==========================================
 
 def setup_folders():
